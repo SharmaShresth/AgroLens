@@ -1,0 +1,18 @@
+data/
+*.zip
+Rice Leaf Disease Images/
+archive*/
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+build/
+managed_components/
+sdkconfig.old
+Thumbs.db
+.vscode/
+sdkconfig
+dependencies.lock
+sdkconfig
+dependencies.lock
+sdkconfig
+dependencies.lock

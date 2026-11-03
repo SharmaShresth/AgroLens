@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroLens — Plant Leaf Disease Detection</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f9f6; --card:#ffffff; --ink:#18221b; --muted:#6b7a6f; --line:#e3e9e2;
+  --green:#2f8f4e; --green-d:#23723c; --green-l:#e8f4ec; --warn:#c2410c; --warn-l:#fff1e6;
+}
+*{box-sizing:border-box;margin:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px}
+header{border-bottom:1px solid var(--line);background:var(--card)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+.logo svg{width:26px;height:26px}
+header small{color:var(--muted);font-size:13px}
+.hero{padding:48px 0 28px;text-align:center}
+.hero h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.03em;font-weight:700}
+.hero h1 span{color:var(--green)}
+.hero p{color:var(--muted);margin-top:10px;max-width:520px;margin-inline:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:20px}
+.step{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 18px;border-radius:999px;font:500 14px Inter;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--green)}
+.chip.on{background:var(--green);border-color:var(--green);color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.drop{border:2px dashed #cfd9cf;border-radius:14px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;cursor:pointer;transition:.15s;overflow:hidden;position:relative;background:#fbfcfb}
+.drop:hover,.drop.over{border-color:var(--green);background:var(--green-l)}
+.drop svg{width:38px;height:38px;color:var(--green)}
+.drop b{font-weight:600}
+.drop span{color:var(--muted);font-size:13px}
+.drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.actions{display:flex;gap:10px;margin-top:14px}
+button.btn{flex:1;border:0;border-radius:10px;padding:12px 18px;font:600 14px Inter;cursor:pointer;transition:.15s}
+.primary{background:var(--green);color:#fff}.primary:hover:not(:disabled){background:var(--green-d)}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.ghost{background:transparent;border:1px solid var(--line)!important;color:var(--ink);flex:0 0 auto!important}
+.ghost:hover{border-color:var(--green)!important}
+.result{min-height:300px;display:flex;flex-direction:column}
+.empty{margin:auto;color:var(--muted);text-align:center;font-size:14px}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--green-l);color:var(--green-d)}
+.badge.warn{background:var(--warn-l);color:var(--warn)}
+.top{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:10px 0 2px}
+.conf{color:var(--muted);font-size:14px;margin-bottom:18px}
+.bar{margin:10px 0}
+.bar .row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.bar .row span:last-child{color:var(--muted)}
+.track{height:7px;background:#eef2ee;border-radius:99px;overflow:hidden}
+.fill{height:100%;background:var(--green);border-radius:99px;width:0;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.fill.alt{background:#b9cfbf}
+.note{font-size:12px;color:var(--muted);margin-top:auto;padding-top:16px}
+.spin{width:26px;height:26px;border:3px solid var(--green-l);border-top-color:var(--green);border-radius:50%;animation:s .8s linear infinite;margin:auto}
+@keyframes s{to{transform:rotate(360deg)}}
+footer{padding:20px 0 40px;text-align:center;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#2f8f4e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"/><path d="M2 21c0-3 1.9-5.3 5-6.5 2.5-1 5-2 7-4"/></svg>
+    AgroLens
+  </div>
+  <small>Deep learning leaf disease detection</small>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Check your crop's <span>leaf health</span></h1>
+    <p>Choose a plant, upload a leaf photo, and get an instant disease prediction.</p>
+  </section>
+
+  <div class="card">
+    <div class="step">1 · Select plant</div>
+    <div class="chips" id="plants"></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="step">2 · Upload leaf image</div>
+      <div class="drop" id="drop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+        <b>Click to upload or drag &amp; drop</b>
+        <span>JPG or PNG · a single clear leaf works best</span>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <div class="actions">
+        <button class="btn primary" id="go" disabled>Analyze leaf</button>
+        <button class="btn ghost" id="clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="card result" id="result">
+      <div class="step">3 · Result</div>
+      <div class="empty">Results will appear here.</div>
+    </div>
+  </div>
+</main>
+<footer>AgroLens · Built with TensorFlow.js &amp; MobileNetV2 · For guidance only, consult an agronomist for treatment.</footer>
+
+<script>
+/* ------------------------------------------------------------------
+   CONFIG — edit this to match your trained models.
+   modelUrl : path to the converted TF.js model (model.json)
+   size     : input size the model was trained with (Tomato = 96)
+   preprocess: 'mobilenet' -> pixels scaled to [-1,1] (preprocess_input)
+               'unit'      -> pixels scaled to [0,1]
+               'none'      -> raw 0-255 (if your model has a Rescaling layer inside)
+   classes  : MUST be in the same order as training (alphabetical folder order by default)
+------------------------------------------------------------------- */
+const PLANTS = {
+  Tomato: {
+    modelUrl: 'models/tomato/model.json', size: 96, preprocess: 'unit',
+    classes: ['Tomato___Bacterial_spot','Tomato___Early_blight','Tomato___Late_blight','Tomato___Leaf_Mold',
+      'Tomato___Septoria_leaf_spot','Tomato___Spider_mites Two-spotted_spider_mite','Tomato___Target_Spot',
+      'Tomato___Tomato_Yellow_Leaf_Curl_Virus','Tomato___Tomato_mosaic_virus','Tomato___healthy']
+  },
+  // All notebooks use Rescaling(1/255) outside the model -> preprocess 'unit'
+  Rice:   { modelUrl:'models/rice/model.json',   size:96, preprocess:'unit', classes:['Bacterialblight','Blast','Brownspot','Tungro'] },
+  Radish: { modelUrl:'models/radish/model.json', size:96, preprocess:'unit', classes:['Radish Black leaf spot','Radish Downey mildew','Radish Fresh leaf','Radish Mosaic virus','Radish flea beetle'] },
+  Potato: { modelUrl:'models/potato/model.json', size:96, preprocess:'unit', classes:['Potato___Early_blight','Potato___Late_blight','Potato___healthy'] }
+};
+
+let plant = 'Tomato', imgEl = null, curFile = null;
+const models = {};
+const $ = id => document.getElementById(id);
+
+// plant chips
+const chips = $('plants');
+Object.keys(PLANTS).forEach(p => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (p === plant ? ' on' : ''); b.textContent = p;
+  b.onclick = () => { plant = p; [...chips.children].forEach(c => c.classList.toggle('on', c === b)); resetResult(); };
+  chips.appendChild(b);
+});
+
+// upload handling
+const drop = $('drop'), file = $('file');
+drop.onclick = () => file.click();
+file.onchange = () => file.files[0] && load(file.files[0]);
+['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', ev => { const f = ev.dataTransfer.files[0]; f && f.type.startsWith('image/') && load(f); });
+
+function load(f){
+  curFile = f;
+  const url = URL.createObjectURL(f);
+  const img = new Image();
+  img.onload = () => {
+    imgEl = img;
+    drop.querySelectorAll('img').forEach(i => i.remove());
+    const show = document.createElement('img'); show.src = url; drop.appendChild(show);
+    $('go').disabled = false; resetResult();
+  };
+  img.src = url;
+}
+$('clear').onclick = () => {
+  imgEl = null; file.value = ''; drop.querySelectorAll('img').forEach(i => i.remove());
+  $('go').disabled = true; resetResult();
+};
+
+function resetResult(){
+  $('result').innerHTML = '<div class="step">3 · Result</div><div class="empty">Results will appear here.</div>';
+}
+
+const pretty = s => s.replace(/^[A-Za-z]+___/, '').replace(/^Radish /, '').replace(/^Bacterialblight$/, 'Bacterial blight').replace(/^Brownspot$/, 'Brown spot').replace(/Downey/, 'Downy').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+
+async function getModel(p){
+  if (models[p] !== undefined) return models[p];
+  try { models[p] = await tf.loadLayersModel(PLANTS[p].modelUrl); }
+  catch(e){ console.warn('Model load failed for', p, e); models[p] = null; }
+  return models[p];
+}
+
+$('go').onclick = async () => {
+  if (!imgEl) return;
+  $('go').disabled = true;
+  $('result').innerHTML = '<div class="step">3 · Result</div><div class="spin"></div>';
+  const cfg = PLANTS[plant];
+  // 1) Try the Python backend (app.py); 2) fall back to TF.js model; 3) demo mode
+  let apiProbs = null, apiClasses = null;
+  try {
+    const fd = new FormData(); fd.append('plant', plant); fd.append('image', curFile);
+    const r = await fetch('/predict', {method:'POST', body: fd});
+    if (r.ok) { const j = await r.json(); apiProbs = j.probs; apiClasses = j.classes; }
+  } catch(e) {}
+  const model = apiProbs ? null : await getModel(plant);
+  let probs, demo = false;
+
+  if (apiProbs){
+    probs = apiProbs;
+  } else if (model){
+    probs = tf.tidy(() => {
+      let x = tf.browser.fromPixels(imgEl).resizeBilinear([cfg.size, cfg.size]).toFloat();
+      if (cfg.preprocess === 'mobilenet') x = x.div(127.5).sub(1);
+      else if (cfg.preprocess === 'unit') x = x.div(255);
+      return model.predict(x.expandDims(0)).dataSync();
+    });
+    probs = Array.from(probs);
+  } else {
+    // Demo mode: model file not found, show simulated output so the UI can be tested
+    demo = true;
+    const r = cfg.classes.map(() => Math.random() ** 3);
+    const s = r.reduce((a,b) => a+b, 0); probs = r.map(v => v/s);
+  }
+  render(apiClasses && apiClasses.length ? {...cfg, classes: apiClasses} : cfg, probs, demo);
+  $('go').disabled = false;
+};
+
+function render(cfg, probs, demo){
+  const ranked = probs.map((p,i) => ({name: pretty(cfg.classes[i] || 'Class '+i), p})).sort((a,b) => b.p - a.p);
+  const top = ranked[0], healthy = /healthy|fresh/i.test(top.name);
+  const rows = ranked.slice(0,3).map((r,i) => `
+    <div class="bar"><div class="row"><span>${r.name}</span><span>${(r.p*100).toFixed(1)}%</span></div>
+    <div class="track"><div class="fill ${i? 'alt':''}" data-w="${r.p*100}"></div></div></div>`).join('');
+  $('result').innerHTML = `
+    <div class="step">3 · Result</div>
+    <div><span class="badge ${healthy ? '' : 'warn'}">${healthy ? 'Healthy' : 'Disease detected'}</span>
+    ${demo ? '<span class="badge warn" style="margin-left:6px">Demo · model not loaded</span>' : ''}</div>
+    <div class="top">${top.name}</div>
+    <div class="conf">${(top.p*100).toFixed(1)}% confidence · ${plant}</div>
+    ${rows}
+    <div class="note">${top.p < 0.6 ? 'Low confidence. Try a clearer, well-lit photo of a single leaf.' : 'Predictions are model estimates, not a diagnosis.'}</div>`;
+  requestAnimationFrame(() => document.querySelectorAll('.fill').forEach(f => f.style.width = f.dataset.w + '%'));
+}
+</script>
+</body>
+</html>
